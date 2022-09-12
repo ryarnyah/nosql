@@ -30,6 +30,7 @@ type Options struct {
 	Database              string
 	ValueDir              string
 	BadgerFileLoadingMode string
+	ReadOnlyMode          bool
 }
 
 // Option is the modifier type over Options.
@@ -47,6 +48,14 @@ func WithValueDir(path string) Option {
 func WithDatabase(db string) Option {
 	return func(o *Options) error {
 		o.Database = db
+		return nil
+	}
+}
+
+// WithReadOnlyConnection enforce read-only connection to associated database.
+func WithReadOnlyConnection() Option {
+	return func(o *Options) error {
+		o.ReadOnlyMode = true
 		return nil
 	}
 }

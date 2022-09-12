@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	pgxstdlib "github.com/jackc/pgx/v4/stdlib"
 	"github.com/pkg/errors"
@@ -77,6 +78,10 @@ func (db *DB) Open(dataSourceName string, opt ...database.Option) error {
 		config.Database = opts.Database
 	}
 
+	if opts.ReadOnlyMode {
+		config.ValidateConnect = ValidateConnectTargetSessionAttrsReadOnly
+	}
+
 	// Attempt to open the database.
 	db.db = pgxstdlib.OpenDB(*config)
 	err = db.db.Ping()
@@ -93,6 +98,21 @@ func (db *DB) Open(dataSourceName string, opt ...database.Option) error {
 	}
 	if err != nil {
 		return errors.Wrapf(err, "error connecting to PostgreSQL database")
+	}
+
+	return nil
+}
+
+// ValidateConnectTargetSessionAttrsReadOnly is an ValidateConnectFunc that implements libpq compatible
+// target_session_attrs=read-only.
+func ValidateConnectTargetSessionAttrsReadOnly(ctx context.Context, pgConn *pgconn.PgConn) error {
+	result := pgConn.ExecParams(ctx, "show transaction_read_only", nil, nil, nil, nil).Read()
+	if result.Err != nil {
+		return result.Err
+	}
+
+	if string(result.Rows[0][0]) != "on" {
+		return errors.New("connection is not read only")
 	}
 
 	return nil

@@ -34,7 +34,11 @@ func (db *DB) Open(dataSourceName string, opt ...database.Option) (err error) {
 			return err
 		}
 	}
-	db.db, err = bolt.Open(dataSourceName, 0600, &bolt.Options{Timeout: 5 * time.Second})
+	bo := &bolt.Options{Timeout: 5 * time.Second}
+	if opts.ReadOnlyMode {
+		bo.ReadOnly = true
+	}
+	db.db, err = bolt.Open(dataSourceName, 0600, bo)
 	return errors.WithStack(err)
 }
 

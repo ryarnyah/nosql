@@ -44,6 +44,11 @@ func (db *DB) Open(dir string, opt ...database.Option) (err error) {
 		return badger.ErrInvalidLoadingMode
 	}
 
+	if opts.ReadOnlyMode {
+		bo.ReadOnly = true
+		bo.BypassLockGuard = true
+	}
+
 	db.db, err = badger.Open(bo)
 	return errors.Wrap(err, "error opening Badger database")
 }
