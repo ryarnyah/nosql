@@ -1,0 +1,125 @@
+syntax = "proto3";
+package proto;
+
+option go_package = "plugin/proto";
+
+// Entry is the return value for list commands.
+message Entry {
+  bytes bucket = 1;
+  bytes key = 2;
+  bytes value = 3;
+}
+// TxCmd is the type used to represent database command and operations.
+enum TxCmd {
+  // CreateTable on a TxEntry will represent the creation of a table or
+	// bucket on the database.
+	CreateTable = 0;
+  // DeleteTable on a TxEntry will represent the deletion of a table or
+  // bucket on the database.
+  DeleteTable = 1;
+  // Get on a TxEntry will represent a command to retrieve data from the
+  // database.
+  Get = 2;
+  // Set on a TxEntry will represent a command to write data on the
+  // database.
+  Set = 3;
+    // Delete on a TxEntry represent a command to delete data on the database.
+  Delete = 4;
+  // CmpAndSwap on a TxEntry will represent a compare and swap operation on
+  // the database. It will compare the value read and change it if it's
+  // different. The TxEntry will contain the value read.
+  CmpAndSwap = 5;
+  // CmpOrRollback on a TxEntry will represent a read transaction that will
+  // compare the values will the ones passed, and if they don't match the
+  // transaction will fail
+  CmpOrRollback = 6;
+}
+// TxEntry is the base elements for the transactions, a TxEntry is a read or
+// write operation on the database.
+message TxEntry {
+  bytes bucket = 1;
+  bytes key = 2;
+  bytes value = 3;
+  bytes cmpValue = 4;
+  // Where the result of Get or CmpAndSwap txns is stored.
+  bytes result = 5;
+  TxCmd cmd = 6;
+  bool swapped = 7;
+}
+// Tx represents a transaction and it's list of multiple TxEntry. Each TxEntry
+// represents a read or write operation on the database.
+message Tx {
+  repeated TxEntry operations = 1;
+}
+
+message Empty {}
+
+// Get returns the value stored in the given table/bucket and key.
+message GetRequest {
+  bytes bucket = 1;
+  bytes key = 2;
+}
+message GetResponse {
+  bytes value = 1;
+}
+
+// Set sets the given value in the given table/bucket and key.
+message SetRequest {
+  bytes bucket = 1;
+  bytes key = 2;
+  bytes value = 3;
+}
+
+// CmpAndSwap swaps the value at the given bucket and key if the current
+// value is equivalent to the oldValue input. Returns 'true' if the
+// swap was successful and 'false' otherwise.
+message CmpAndSwapRequest {
+  bytes bucket = 1;
+  bytes key = 2;
+  bytes oldValue = 3;
+  bytes newValue = 4;
+}
+message CmpAndSwapResponse {
+  bytes value = 1;
+  bool swapped = 2;
+}
+
+// Del deletes the data in the given table/bucket and key.
+message DelRequest {
+  bytes bucket = 1;
+  bytes key = 2;
+}
+
+// List returns a list of all the entries in a given table/bucket.
+message ListRequest {
+  bytes bucket = 1;
+}
+message ListResponse {
+  repeated Entry entries = 1;
+}
+
+// Update performs a transaction with multiple read-write commands.
+message UpdateRequest {
+  Tx tx = 1;
+}
+
+// CreateTable creates a table or a bucket in the database.
+message CreateTableRequest {
+  bytes bucket = 1;
+}
+
+// DeleteTable deletes a table or a bucket in the database.
+message DeleteTableRequest {
+  bytes bucket = 1;
+}
+
+service DB {
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Set(SetRequest) returns (Empty);
+  rpc CmpAndSwap(CmpAndSwapRequest) returns (CmpAndSwapResponse);
+  rpc Del(DelRequest) returns (Empty);
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Update(UpdateRequest) returns (Empty);
+  rpc CreateTable(CreateTableRequest) returns (Empty);
+  rpc DeleteTable(DeleteTableRequest) returns (Empty);
+}
