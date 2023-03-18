@@ -2,7 +2,6 @@ package shared
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/smallstep/nosql/database"
@@ -34,8 +33,8 @@ func (p *NOSQLGRPCPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBro
 	return &GRPCClient{client: proto.NewDBClient(c)}, nil
 }
 
-func (plugin *GRPCClient) Get(bucket, key []byte) (ret []byte, err error) {
-	response, err := plugin.client.Get(context.Background(), &proto.GetRequest{
+func (p *GRPCClient) Get(bucket, key []byte) (ret []byte, err error) {
+	response, err := p.client.Get(context.Background(), &proto.GetRequest{
 		Bucket: bucket,
 		Key:    key,
 	})
@@ -44,8 +43,8 @@ func (plugin *GRPCClient) Get(bucket, key []byte) (ret []byte, err error) {
 	}
 	return response.Value, nil
 }
-func (plugin *GRPCClient) Set(bucket, key, value []byte) error {
-	_, err := plugin.client.Set(context.Background(), &proto.SetRequest{
+func (p *GRPCClient) Set(bucket, key, value []byte) error {
+	_, err := p.client.Set(context.Background(), &proto.SetRequest{
 		Bucket: bucket,
 		Key:    key,
 		Value:  value,
@@ -55,8 +54,8 @@ func (plugin *GRPCClient) Set(bucket, key, value []byte) error {
 	}
 	return nil
 }
-func (plugin *GRPCClient) CmpAndSwap(bucket, key, oldValue, newValue []byte) ([]byte, bool, error) {
-	response, err := plugin.client.CmpAndSwap(context.Background(), &proto.CmpAndSwapRequest{
+func (p *GRPCClient) CmpAndSwap(bucket, key, oldValue, newValue []byte) ([]byte, bool, error) {
+	response, err := p.client.CmpAndSwap(context.Background(), &proto.CmpAndSwapRequest{
 		Bucket:   bucket,
 		Key:      key,
 		OldValue: oldValue,
@@ -67,8 +66,8 @@ func (plugin *GRPCClient) CmpAndSwap(bucket, key, oldValue, newValue []byte) ([]
 	}
 	return response.Value, response.Swapped, nil
 }
-func (plugin *GRPCClient) Del(bucket, key []byte) error {
-	_, err := plugin.client.Del(context.Background(), &proto.DelRequest{
+func (p *GRPCClient) Del(bucket, key []byte) error {
+	_, err := p.client.Del(context.Background(), &proto.DelRequest{
 		Bucket: bucket,
 		Key:    key,
 	})
@@ -77,8 +76,8 @@ func (plugin *GRPCClient) Del(bucket, key []byte) error {
 	}
 	return nil
 }
-func (plugin *GRPCClient) List(bucket []byte) ([]*database.Entry, error) {
-	response, err := plugin.client.List(context.Background(), &proto.ListRequest{
+func (p *GRPCClient) List(bucket []byte) ([]*database.Entry, error) {
+	response, err := p.client.List(context.Background(), &proto.ListRequest{
 		Bucket: bucket,
 	})
 	if err != nil {
@@ -94,7 +93,7 @@ func (plugin *GRPCClient) List(bucket []byte) ([]*database.Entry, error) {
 	}
 	return entries, nil
 }
-func (plugin *GRPCClient) Update(tx *database.Tx) error {
+func (p *GRPCClient) Update(tx *database.Tx) error {
 	protoTx := &proto.Tx{}
 	protoTx.Operations = make([]*proto.TxEntry, len(tx.Operations))
 	for i, operation := range tx.Operations {
@@ -122,11 +121,11 @@ func (plugin *GRPCClient) Update(tx *database.Tx) error {
 		case database.CmpOrRollback:
 			entry.Cmd = proto.TxCmd_CmpOrRollback
 		default:
-			return fmt.Errorf("Unsupported operation %v", operation)
+			return database.ErrOpNotSupported
 		}
 		protoTx.Operations[i] = entry
 	}
-	_, err := plugin.client.Update(context.Background(), &proto.UpdateRequest{
+	_, err := p.client.Update(context.Background(), &proto.UpdateRequest{
 		Tx: protoTx,
 	})
 	if err != nil {
@@ -134,8 +133,8 @@ func (plugin *GRPCClient) Update(tx *database.Tx) error {
 	}
 	return nil
 }
-func (plugin *GRPCClient) CreateTable(bucket []byte) error {
-	_, err := plugin.client.CreateTable(context.Background(), &proto.CreateTableRequest{
+func (p *GRPCClient) CreateTable(bucket []byte) error {
+	_, err := p.client.CreateTable(context.Background(), &proto.CreateTableRequest{
 		Bucket: bucket,
 	})
 	if err != nil {
@@ -143,8 +142,8 @@ func (plugin *GRPCClient) CreateTable(bucket []byte) error {
 	}
 	return nil
 }
-func (plugin *GRPCClient) DeleteTable(bucket []byte) error {
-	_, err := plugin.client.DeleteTable(context.Background(), &proto.DeleteTableRequest{
+func (p *GRPCClient) DeleteTable(bucket []byte) error {
+	_, err := p.client.DeleteTable(context.Background(), &proto.DeleteTableRequest{
 		Bucket: bucket,
 	})
 	if err != nil {
@@ -230,7 +229,7 @@ func (s *GRPCServer) Update(ctx context.Context, request *proto.UpdateRequest) (
 		case proto.TxCmd_CmpOrRollback:
 			entry.Cmd = database.CmpOrRollback
 		default:
-			return nil, fmt.Errorf("Unsupported operation %v", operation)
+			return nil, database.ErrOpNotSupported
 		}
 		operations[i] = entry
 	}
@@ -255,5 +254,4 @@ func (s *GRPCServer) DeleteTable(ctx context.Context, request *proto.DeleteTable
 		return nil, err
 	}
 	return &proto.Empty{}, nil
-
 }
